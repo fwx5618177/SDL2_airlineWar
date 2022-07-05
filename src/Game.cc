@@ -57,6 +57,11 @@ bool Game::Initialize() {
         return false;
     }
 
+    // 引入图像
+    if(IMG_Init(IMG_INIT_PNG) == 0) {
+        SDL_Log("Can't initialize SDL_image: %s", SDL_GetError());
+    }
+
 
     return true;
 }

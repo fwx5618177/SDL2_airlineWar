@@ -2,6 +2,7 @@
 #define Game_hpp
 
 #include <SDL.h>
+#include <SDL_image.h>
 
 const int kThickness = 15;
 
