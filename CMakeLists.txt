@@ -19,7 +19,7 @@ SET(ROOT_DIR ${CMAKE_SOURCE_DIR})
 # 引入头文件
 include_directories(include/
     external/SDL2/
-    external/SDL2_image-2.0.5/
+    external/SDL2Image/
 )
 
 # 指定引用的外部库的搜索路径

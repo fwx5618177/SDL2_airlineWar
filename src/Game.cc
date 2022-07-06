@@ -1,250 +1,355 @@
 #include "Game.hpp"
-
-using namespace std;
+#include "SDL_image.h"
+#include "Actor.hpp"
+#include "BGSpriteComponent.hpp"
+#include "Random.hpp"
 
 Game::Game()
-: mWindow(nullptr), 
-mIsRunning(true), 
-mRenderer(nullptr), 
-mTicksCount(0),
-mPaddleDir(0) {
-
+:mWindow(nullptr)
+,mRenderer(nullptr)
+,mIsRunning(true)
+,mTicksCount(0)
+{
+    
 }
 
-bool Game::Initialize() {
+bool Game::Initialize()
+{
+    // 初始化 SDL 库
     int sdlResult = SDL_Init(SDL_INIT_VIDEO);
-
-    mPaddlePos.x = 10.0f;
-    mPaddlePos.y = 768.0f / 2.0f;
-    mBallPos.x = 1024.0f / 2.0f;
-    mBallPos.y = 768.0f / 2.0f;
-
-    // mBallVel.x = -200.0f;
-    // mBallVel.y = 235.0f;
-
-    mBallVel = {-200.0f, 235.0f};
-
-    if (sdlResult != 0) {
-        SDL_Log("Can't initialize SDL: %s", SDL_GetError());
-
+    if (sdlResult != 0)
+    {
+        SDL_Log("不能初始化 SDL: %s", SDL_GetError());
         return false;
     }
-
+    
+    // 创建 SDL 窗体
     mWindow = SDL_CreateWindow(
-        "Game Environment",
-        100,
-        100,
-        1024,
-        768,
-        0
-    );
-
-    if (!mWindow) {
-        SDL_Log("Create Window error: %s", SDL_GetError());
-
+                               "Aircrafts",        // 标题
+                               100,               // 窗体左上角的 x 坐标
+                               100,               // 窗体左上角的 y 坐标
+                               1024,              // 窗体宽度
+                               768,               // 窗体高度
+                               0                  // 标志位
+                               );
+    
+    if (!mWindow)
+    {
+        SDL_Log("创建窗体失败: %s", SDL_GetError());
         return false;
     }
-
+    
+    // 创建渲染器
     mRenderer = SDL_CreateRenderer(
-        mWindow,
-        -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
-    );
-
-    if (!mRenderer) {
-        SDL_Log("Crate renderer error: %s", SDL_GetError());
-
+                                   mWindow,
+                                   -1,
+                                   SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+                                   );
+    if (!mRenderer)
+    {
+        SDL_Log("创建渲染器失败: %s", SDL_GetError());
+        return false;
+    }
+    
+    if (IMG_Init(IMG_INIT_PNG) == 0)
+    {
+        SDL_Log("不能初始化SDL_image: %s", SDL_GetError());
         return false;
     }
 
-    // 引入图像
-    if(IMG_Init(IMG_INIT_PNG) == 0) {
-        SDL_Log("Can't initialize SDL_image: %s", SDL_GetError());
-    }
-
-
+    Random::Init();
+    
+    LoadData();
+    mTicksCount = SDL_GetTicks();
     return true;
 }
 
-void Game::Shutdown() {
+void Game::LoadData() {
+    // 创建一个飞船player
+     mShip = new Ship(this);
+     mShip->SetPosition(Vector2(100.0f, 384.0f));
+     mShip->SetScale(1.5f);
+    
+    // 为背景创建 actor (不需要子类)
+    Actor* temp = new Actor(this);
+    temp->SetPosition(Vector2(512.0f, 384.0f));
+    
+    // 创建一个遥远的深层背景
+    BGSpriteComponent* bg = new BGSpriteComponent(temp);
+    bg->SetScreenSize(Vector2(1024.0f, 768.0f));
+    std::vector<SDL_Texture*> bgtexs = {
+        GetTexture("../Content/Textures/StarLayer.png"),
+        GetTexture("../Content/Textures/StarLayer.png")
+    };
+    bg->SetBGTextures(bgtexs);
+    bg->SetScrollSpeed(-100.0f);
+    
+    // 创建一个更近的背景
+    bg = new BGSpriteComponent(temp, 50);
+    bg->SetScreenSize(Vector2(1024.0f, 768.0f));
+    bgtexs = {
+        GetTexture("../Content/Textures/Stars.png"),
+        GetTexture("../Content/Textures/Stars.png")
+    };
+    bg->SetBGTextures(bgtexs);
+    bg->SetScrollSpeed(-200.0f);
+}
+
+void Game::UnloadData()
+{
+    // 删除actor
+    // 因为~Actor调用RemoveActor，所以必须使用循环
+    while (!mActors.empty())
+    {
+        delete mActors.back();
+    }
+    
+    // 销毁texture
+    for (auto i : mTextures)
+    {
+        SDL_DestroyTexture(i.second);
+    }
+    mTextures.clear();
+}
+
+SDL_Texture* Game::LoadTexture(const char* fileName)
+{
+    // 从文件中加载
+    SDL_Surface* surf = IMG_Load(fileName);
+    
+    if (!surf)
+    {
+        SDL_Log("加载图像文件 %s 失败", fileName);
+        return nullptr;
+    }
+    
+    // 从 surface 创建 texture
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(mRenderer, surf);
+    SDL_FreeSurface(surf);
+    if (!tex)
+    {
+        SDL_Log("%s surface 转换到 texture 失败!", fileName);
+        return nullptr;
+    }
+    return tex;
+}
+
+SDL_Texture* Game::GetTexture(const std::string& fileName)
+{
+    SDL_Texture* tex = nullptr;
+    // texture是否已经存在？
+    auto iter = mTextures.find(fileName);
+    if (iter != mTextures.end())
+    {
+        tex = iter->second;
+    }
+    else
+    {
+        // 从文件中加载
+        SDL_Surface* surf = IMG_Load(fileName.c_str());
+        if (!surf)
+        {
+            SDL_Log("加载texture文件%s失败", fileName.c_str());
+            return nullptr;
+        }
+        
+        // 从 surface 中创建 textures
+        tex = SDL_CreateTextureFromSurface(mRenderer, surf);
+        SDL_FreeSurface(surf);
+        if (!tex)
+        {
+            SDL_Log("无法把%s从surface转化到texture", fileName.c_str());
+            return nullptr;
+        }
+        
+        mTextures.emplace(fileName.c_str(), tex);
+    }
+    return tex;
+}
+
+void Game::Shutdown()
+{
+    UnloadData();
+    IMG_Quit();
     SDL_DestroyRenderer(mRenderer);
     SDL_DestroyWindow(mWindow);
     SDL_Quit();
 }
 
-void Game::RunLoop() {
-    while(mIsRunning) {
-        Game::ProcessInput();
-        Game::UpdateGame();
-        Game::GenerateOuput();
+void Game::RunLoop()
+{
+    while (mIsRunning)
+    {
+        ProcessInput();
+        UpdateGame();
+        GenerateOutput();
     }
 }
 
 void Game::ProcessInput() {
     SDL_Event event;
-
-    while(SDL_PollEvent(&event)) {
-        switch (event.type) {
+    
+    // 有 event 在队列就一直循环
+    while (SDL_PollEvent(&event))
+    {
+        switch (event.type)
+        {
             case SDL_QUIT:
                 mIsRunning = false;
                 break;
-            
             default:
                 break;
         }
     }
-
-    // 获取键盘状态
-    const Uint8 *state = SDL_GetKeyboardState(NULL);
-
-    if(state[SDL_SCANCODE_ESCAPE]) {
+    
+    // 获取键盘的状态
+    const Uint8* state = SDL_GetKeyboardState(NULL);
+    // 如果按了 Esc，结束循环
+    if (state[SDL_SCANCODE_ESCAPE])
+    {
         mIsRunning = false;
     }
-
-    // 通过 w/s 更新球拍位置
-    mPaddleDir = 0;
-
-    if(state[SDL_SCANCODE_W]) {
-        mPaddleDir -= 1;
-    }
     
-    if (state[SDL_SCANCODE_S]) {
-        mPaddleDir += 1;
-    }
+    // 处理飞船的输入
+    mShip->ProcessKeyboard(state);
 }
 
-void Game::GenerateOuput() {
-    SDL_SetRenderDrawColor(
-        mRenderer,
-        129,
-        216,
-        209,
-        255
-    );
-
-
-    SDL_RenderClear(mRenderer);
-
-    // 绘制墙
-    SDL_SetRenderDrawColor(mRenderer, 0, 0, 255, 255);
-
-    SDL_Rect wall {
-        0, // 左上 x 坐标
-        0, // 左上 y 坐标
-        1024, // 宽度
-        kThickness // 高度
-    };
-
-    SDL_RenderFillRect(mRenderer, &wall);
-
-    // 绘制底部墙
-    wall.y = 768 - kThickness;
-    SDL_RenderFillRect(mRenderer, &wall);
+void Game::UpdateGame()
+{
+    // 计算增量时间
+    // 等待16ms
+    while (!SDL_TICKS_PASSED(SDL_GetTicks(), mTicksCount + 16))
+        ;
     
-    // 绘制右边的墙
-    SDL_Rect rightWall = { 1024 - kThickness, 0, kThickness, 1024 };
-
-    SDL_RenderFillRect(mRenderer, &rightWall);
-
-
-    // 绘制球拍
-    SDL_Rect paddle {
-        static_cast<int>(mPaddlePos.x),
-        static_cast<int>(mPaddlePos.y - kPaddleH / 2),
-        kThickness,
-        static_cast<int>(kPaddleH)
-    };
-
-    SDL_RenderFillRect(mRenderer, &paddle);
-
-    // 绘制球
-    SDL_Rect ball {
-        static_cast<int>(mBallPos.x - kThickness / 2),
-        static_cast<int>(mBallPos.y - kThickness / 2),
-        kThickness,
-        kThickness
-    };
-
-    SDL_RenderFillRect(mRenderer, &ball);
-    
-    
-
-    // 交换前后缓冲区
-    SDL_RenderPresent(mRenderer);
-}
-
-
-void Game::UpdateGame() {
-
-    // wait time gap equal 16ms
-    while (!SDL_TICKS_PASSED(SDL_GetTicks(), mTicksCount + 16)) ;
-
-    // time gap
     float deltaTime = (SDL_GetTicks() - mTicksCount) / 1000.0f;
-
-    // 固定时间增量的最大值
-    if (deltaTime > 0.05f) {
+    if (deltaTime > 0.05f)
+    {
         deltaTime = 0.05f;
     }
-
-
-    // 根据方向更新球拍位置
-    if(mPaddleDir != 0) {
-        mPaddlePos.y += mPaddleDir * 300.0f * deltaTime;
-
-        // limit
-        if (mPaddlePos.y < (kPaddleH / 2.0f + kThickness)) {
-            mPaddlePos.y = kPaddleH / 2.0f + kThickness;
-        } else if(mPaddlePos.y > (768.0 - kPaddleH / 2.0f - kThickness)) {
-            mPaddlePos.y = 768.0f - kPaddleH / 2.0f - kThickness;
+    mTicksCount = SDL_GetTicks();
+    
+    // 更新所有actor
+    mUpdatingActors = true;
+    for (auto actor : mActors)
+    {
+        actor->Update(deltaTime);
+    }
+    mUpdatingActors = false;
+    
+    // 移动待定actor到mActors
+    for (auto pending : mPendingActors)
+    {
+        mActors.emplace_back(pending);
+    }
+    mPendingActors.clear();
+    
+    // 添加 dead actor 到临时向量
+    std::vector<Actor*> deadActors;
+    for (auto actor : mActors)
+    {
+        if (actor->GetState() == Actor::EDead)
+        {
+            deadActors.emplace_back(actor);
         }
     }
-
-    Game::BallBounce(deltaTime);
-
-    mTicksCount = SDL_GetTicks();
-
+    
+    // 删除处于dead的actor（从mActors中移除)
+    for (auto actor : deadActors)
+    {
+        delete actor;
+    }
+    
 }
 
-void Game::BallBounce(float deltaTime) {
-    mBallPos.x += mBallVel.x * 1.0f * deltaTime;
-    mBallPos.y += mBallVel.y * 1.0f * deltaTime;
 
-      // 球是否和顶部墙相碰
-  if (mBallPos.y <= kThickness && mBallVel.y < 0.0f)
-  {
-    mBallVel.y *= -1;
-  }
-  else if (mBallPos.y >= (768 - kThickness) && mBallVel.y > 0.0f)
-  {
-    // 球和底部墙相碰
-    mBallVel.y *= -1;
-  }
+void Game::GenerateOutput()
+{
+    SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(mRenderer);
+    
+    // 绘制所有精灵组件
+    for (auto sprite : mSprites)
+    {
+        sprite->Draw(mRenderer);
+        
+    }
+    
+    SDL_RenderPresent(mRenderer);
+    
+}
 
-  // 是否和球拍相交
-  float diff = mPaddlePos.y - mBallPos.y;
-  // 取绝对值
-  diff = (diff > 0.0f) ? diff : -diff;
-  if (
-      // y分量差距足够小
-      diff <= kPaddleH / 2.0f &&
-      // 球拍的x范围内
-      mBallPos.x <= 25.0f && mBallPos.x >= 20.0f &&
-      // 球正向左运动
-      mBallVel.x < 0.0f
-    )
-  {
-    mBallVel.x *= -1.0f;
-  }
-  // 如果球出了窗口，结束游戏
-  else if (mBallPos.x <= 0.0f)
-  {
-    mIsRunning = false;
-  }
-  // 如果球碰到右边的墙，则反弹
-  else if(mBallPos.x >= (1024.0f - kThickness) && mBallVel.x > 0.0f)
-  {
-    mBallVel.x *= -1.0f;
-  }
+void Game::AddActor(Actor* actor)
+{
+    // 如果正在更新actor，就添加到待处理列表里
+    if (mUpdatingActors)
+    {
+        mPendingActors.emplace_back(actor);
+    }
+    else
+    {
+        mActors.emplace_back(actor);
+    }
+}
 
+void Game::RemoveActor(Actor* actor)
+{
+    // 是否在待定actor中
+    auto iter = std::find(mPendingActors.begin(), mPendingActors.end(), actor);
+    if (iter != mPendingActors.end())
+    {
+        // 交换到尾部（避免复制)
+        std::iter_swap(iter, mPendingActors.end() - 1);
+        mPendingActors.pop_back();
+    }
+    
+    // 是否在 actor中
+    iter = std::find(mActors.begin(), mActors.end(), actor);
+    if (iter != mActors.end())
+    {
+        // 交换到尾部（避免复制)
+        std::iter_swap(iter, mActors.end() - 1);
+        mActors.pop_back();
+    }
+}
+
+void Game::AddSprite(SpriteComponent* sprite)
+{
+    // 在有序向量中找到插入点
+    // (第一个比传入的sprite的order顺序大的元素)
+    int myDrawOrder = sprite->GetDrawOrder();
+    auto iter = mSprites.begin();
+    for ( ;
+         iter != mSprites.end();
+         ++iter)
+    {
+        if (myDrawOrder < (*iter)->GetDrawOrder())
+        {
+            break;
+        }
+    }
+    
+    // 在迭代器之前插入
+    mSprites.insert(iter, sprite);
+}
+
+void Game::RemoveSprite(SpriteComponent* sprite)
+{
+    // (不能交换，不然顺序就没了)
+    auto iter = std::find(mSprites.begin(), mSprites.end(), sprite);
+    mSprites.erase(iter);
+}
+
+void Game::AddAsteroid(Asteroid* ast)
+{
+    mAsteroids.emplace_back(ast);
+}
+
+void Game::RemoveAsteroid(Asteroid* ast)
+{
+    auto iter = std::find(mAsteroids.begin(),
+        mAsteroids.end(), ast);
+    if (iter != mAsteroids.end())
+    {
+        mAsteroids.erase(iter);
+    }
 }
