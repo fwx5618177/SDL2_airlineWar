@@ -3,6 +3,7 @@
 #include "Actor.hpp"
 #include "BGSpriteComponent.hpp"
 #include "Random.hpp"
+#include "Asteroid.hpp"
 
 Game::Game()
 :mWindow(nullptr)
@@ -69,6 +70,13 @@ void Game::LoadData() {
      mShip = new Ship(this);
      mShip->SetPosition(Vector2(100.0f, 384.0f));
      mShip->SetScale(1.5f);
+
+    // 创建敌人
+    const int kNumAsteroids = 2;
+    for (int i = 0; i < kNumAsteroids; i++)
+    {
+        new Asteroid(this);
+    }
     
     // 为背景创建 actor (不需要子类)
     Actor* temp = new Actor(this);
@@ -212,6 +220,13 @@ void Game::ProcessInput() {
     
     // 处理飞船的输入
     mShip->ProcessKeyboard(state);
+
+    // mUpdatingActors = true;
+    // for (auto actor : mActors)
+    // {
+    //     actor->ProcessInput(state);
+    // }
+    // mUpdatingActors = false;
 }
 
 void Game::UpdateGame()

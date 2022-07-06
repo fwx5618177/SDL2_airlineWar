@@ -12,7 +12,7 @@ public:
   Ship(class Game* game);
   ~Ship();
   void UpdateActor(float deltaTime) override;
-  // void ActorInput(const uint8_t* keyState) override;
+  void ActorInput(const uint8_t* keyState) override;
   void ProcessKeyboard(const uint8_t* state);
   float GetRightSpeed() const { return mRightSpeed; }
   float GetDownSpeed() const { return mDownSpeed; }

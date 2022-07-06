@@ -1,6 +1,7 @@
 #include "Ship.hpp"
 #include "AnimSpriteComponent.hpp"
 #include "Game.hpp"
+#include "Laser.hpp"
 
 Ship::Ship(Game* game)
 :Actor(game)
@@ -20,6 +21,8 @@ Ship::Ship(Game* game)
     // game->GetTexture("../Content/Textures/Player_3.png"),
   };
   asc->SetAnimTextures(anims);
+
+  // sc->SetTexture(game->GetTexture("../Content/Textures/Player_1.png"));
 
     // 设置按键
   ic->SetForwardKey(SDL_SCANCODE_W);
@@ -88,17 +91,22 @@ void Ship::ProcessKeyboard(const uint8_t* state)
   }
 }
 
-
-// void Ship::ActorInput(const uint8_t* keyState)
+// void Ship::UpdateActor(float deltaTime)
 // {
-//     if (keyState[SDL_SCANCODE_SPACE] && mLaserCooldown <= 0.0f)
-//     {
-//         // 创建激光
-//         Laser* laser = new Laser(GetGame());
-//         laser->SetPosition(GetPosition());
-//         laser->SetRotation(GetRotation());
-
-//         // 设定冷却期
-//         mLaserCooldown = 0.5f;
-//     }
+//     mLaserCooldown -= deltaTime;
 // }
+
+
+void Ship::ActorInput(const uint8_t* keyState)
+{
+    if (keyState[SDL_SCANCODE_SPACE] && mLaserCooldown <= 0.0f)
+    {
+        // 创建激光
+        Laser* laser = new Laser(GetGame());
+        laser->SetPosition(GetPosition());
+        laser->SetRotation(GetRotation());
+
+        // 设定冷却期
+        mLaserCooldown = 0.5f;
+    }
+}

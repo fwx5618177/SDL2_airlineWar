@@ -10,13 +10,22 @@ Asteroid::Asteroid(Game* game)
     , mCircle(new CircleComponent(this))
 {
     // 初始化一个随机的位置和方向
-    Vector2 randPos = Random::GetVector(Vector2::Zero,
+    // Vector2 randPos = Random::GetVector(Vector2::Zero,
+    //     Vector2(1024.0f, 768.0f));
+        
+    Vector2 randPos = Random::GetVector(Vector2(1024.0f, 0.0f),
         Vector2(1024.0f, 768.0f));
     SetPosition(randPos);
 
     SetRotation(Random::GetFloatRange(0.0f, Math::TwoPi));
 
-    sc->SetTexture(game->GetTexture("../Content/Textures/Meteorite_1.png"));
+    std::vector<SDL_Texture*> bgtexs = {
+        game->GetTexture("../Content/Textures/Enemy_1.png"),
+        game->GetTexture("../Content/Textures/Enemy_2.png"),
+        game->GetTexture("../Content/Textures/Enemy_3.png"),
+    };
+
+    sc->SetTexture(game->GetTexture("../Content/Textures/Enemy_1.png"));
     mc->SetForwardSpeed(150.0f);
     
     // 设置半径
