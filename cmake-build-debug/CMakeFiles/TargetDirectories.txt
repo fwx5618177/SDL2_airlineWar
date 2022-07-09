@@ -1,0 +1,3 @@
+/Users/fengwenxuan/Desktop/MacGame/cmake-build-debug/CMakeFiles/MacGame.dir
+/Users/fengwenxuan/Desktop/MacGame/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/fengwenxuan/Desktop/MacGame/cmake-build-debug/CMakeFiles/rebuild_cache.dir
