@@ -72,7 +72,7 @@ void Game::LoadData() {
      mShip->SetScale(1.5f);
 
     // 创建敌人
-    const int kNumAsteroids = 2;
+    const int kNumAsteroids = 5;
     for (int i = 0; i < kNumAsteroids; i++)
     {
         new Asteroid(this);
